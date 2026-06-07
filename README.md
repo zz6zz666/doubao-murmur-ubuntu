@@ -1,8 +1,9 @@
 # Doubao Murmur
 
-一个 macOS 菜单栏应用，通过劫持豆包 Web 版的语音识别能力，实现全局语音输入。
+通过劫持豆包 Web 版的语音识别能力，实现全局语音输入。支持 **macOS** 和 **Linux / SteamOS**（Steam Deck 等掌机）。
 
-按下右 `⌥ Option` 键开始/停止语音识别，识别结果自动复制到剪贴板并粘贴到当前光标所在的输入框。
+- **macOS**：按下右 `⌥ Option` 键开始/停止语音识别，识别结果自动复制到剪贴板并粘贴到当前光标所在的输入框。
+- **Linux / SteamOS**：按下右 `Alt` 键开始/停止；掌机上可在 Steam Input 桌面布局中把任意手柄按键（如 R3/R2）映射为右 Alt，即可**用手柄一键语音输入**。详见 [Linux 版说明](linux/README.md)。
 
 <p align="center">
   <img src="docs/screenshots/overlay_pannel.png" width="500" alt="语音识别悬浮窗">
@@ -29,9 +30,18 @@
 
 ### 安装
 
-从 [Releases](../../releases) 页面下载最新版本的 `Doubao-Murmur-vX.X.X.zip`，解压后将 `Doubao Murmur.app` 拖入「应用程序」文件夹即可。
+**macOS**：从 [Releases](../../releases) 页面下载最新版本的 `Doubao-Murmur-vX.X.X.zip`，解压后将 `Doubao Murmur.app` 拖入「应用程序」文件夹即可。
 
 > 要求 macOS 13.0+
+
+**Linux / SteamOS (Steam Deck)**：从 [Releases](../../releases) 页面下载 `doubao-murmur.flatpak`，然后：
+
+```bash
+flatpak install --user doubao-murmur.flatpak
+flatpak run com.doubao.Murmur
+```
+
+> 安装、手柄按键映射等详细说明见 [Linux 版 README](linux/README.md)
 
 ### 首次使用
 
