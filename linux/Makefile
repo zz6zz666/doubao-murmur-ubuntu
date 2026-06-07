@@ -12,15 +12,16 @@ run:
 test:
 	PYTHONPATH=src python3 -m pytest tests/ -v
 
-# Build Flatpak
-flatpak-build:
-	flatpak-builder --force-clean build-dir flatpak/com.doubao.Murmur.yml
-	flatpak-builder --repo=repo --force-clean build-dir flatpak/com.doubao.Murmur.yml
+# Build Flatpak (uses the org.flatpak.Builder flatpak; install with:
+#   flatpak install flathub org.flatpak.Builder)
+FLATPAK_BUILDER = flatpak run org.flatpak.Builder
 
-# Install Flatpak locally
-flatpak-install: flatpak-build
-	flatpak --user remote-add --if-not-exists doubao-murmur repo --no-gpg-verify
-	flatpak --user install -y doubao-murmur com.doubao.Murmur
+flatpak-build:
+	$(FLATPAK_BUILDER) --force-clean --user build-dir flatpak/com.doubao.Murmur.yml
+
+# Build and install locally for the current user
+flatpak-install:
+	$(FLATPAK_BUILDER) --force-clean --user --install build-dir flatpak/com.doubao.Murmur.yml
 
 # Clean build artifacts
 clean:
