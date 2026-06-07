@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.doubao.Murmur</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Doubao Murmur</name>
+  <name xml:lang="zh_CN">豆包语音输入</name>
+  <summary>Voice-to-text input using Doubao ASR</summary>
+  <summary xml:lang="zh_CN">使用豆包语音识别的语音输入工具</summary>
+  <description>
+    <p>
+      Doubao Murmur is a voice-to-text input tool that uses Doubao's ASR
+      (Automatic Speech Recognition) service to convert speech to text in
+      real-time. It works as a global overlay with a push-to-talk button,
+      making it easy to dictate text into any application.
+    </p>
+    <p xml:lang="zh_CN">
+      豆包语音输入是一款语音转文字工具，使用豆包的 ASR（自动语音识别）服务
+      实时将语音转换为文字。它以全局悬浮窗的形式工作，提供一键录音按钮，
+      可以轻松地将文字输入到任何应用中。
+    </p>
+  </description>
+  <launchable type="desktop-id">com.doubao.Murmur.desktop</launchable>
+  <url type="homepage">https://github.com/lilong7676/doubao-murmur</url>
+  <developer_name>lilong7676</developer_name>
+  <releases>
+    <release version="1.2.0" date="2026-06-07">
+      <description>
+        <p>Initial Linux/SteamOS release</p>
+      </description>
+    </release>
+  </releases>
+  <content_rating type="oars-1.1" />
+</component>

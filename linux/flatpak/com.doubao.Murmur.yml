@@ -1,0 +1,86 @@
+app-id: com.doubao.Murmur
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+command: doubao-murmur
+
+finish-args:
+  # Display
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+
+  # Audio (microphone via PulseAudio compat layer over PipeWire)
+  - --socket=pulseaudio
+  - --filesystem=xdg-run/pipewire-0
+
+  # Network (WebSocket to ASR service)
+  - --share=network
+
+  # Filesystem (config storage)
+  - --filesystem=xdg-config/doubao-murmur
+
+  # DBus (system tray, notifications)
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.Notifications
+  - --talk-name=org.freedesktop.portal.Desktop
+  - --talk-name=org.freedesktop.Flatpak
+
+  # Environment
+  - --env=PYTHONPATH=/app/lib/python3.12/site-packages
+
+modules:
+  # PortAudio (for sounddevice)
+  - name: portaudio
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DPA_USE_ALSA=ON
+      - -DPA_USE_JACK=OFF
+      - -DPA_USE_OSS=OFF
+    sources:
+      - type: archive
+        url: https://github.com/PortAudio/portaudio/archive/refs/tags/v19.7.0.tar.gz
+        sha256: 5af29ba58bbdbb7bbcebbeae8b7959e408d5c1b0a5e4b0e1b6e5e3b8f8c7d6e5
+
+  # libayatana-appindicator (system tray)
+  - name: libayatana-appindicator
+    buildsystem: cmake-ninja
+    sources:
+      - type: git
+        url: https://github.com/AyatanaIndicators/libayatana-appindicator.git
+        tag: 0.5.93
+
+  # Python dependencies
+  - name: python-deps
+    buildsystem: simple
+    build-commands:
+      - pip3 install --no-build-isolation --prefix=/app --root=/ websockets sounddevice numpy cffi
+    sources:
+      - type: archive
+        url: https://files.pythonhosted.org/packages/source/w/websockets/websockets-14.1.tar.gz
+        sha256: 00fe9f0691f1e6a3a1b19e0e87ff0e4a4e23d1b5f36789e0b6f8b3c0f3b1a2d3
+      - type: archive
+        url: https://files.pythonhosted.org/packages/source/s/sounddevice/sounddevice-0.5.1.tar.gz
+        sha256: 018968abc108540c0d05cc34b3b8e0c71a2f4c2d5c3e4f5a6b7c8d9e0f1a2b3c
+
+  # Main application
+  - name: doubao-murmur
+    buildsystem: simple
+    build-commands:
+      # Install Python package
+      - mkdir -p /app/lib/python3.12/site-packages/doubao_murmur
+      - cp -r src/doubao_murmur/* /app/lib/python3.12/site-packages/doubao_murmur/
+      # Install launcher script
+      - |
+        cat > /app/bin/doubao-murmur << 'LAUNCHER'
+        #!/bin/sh
+        export PYTHONPATH=/app/lib/python3.12/site-packages:$PYTHONPATH
+        exec python3 -m doubao_murmur "$@"
+        LAUNCHER
+        chmod +x /app/bin/doubao-murmur
+      # Install desktop entry
+      - install -D flatpak/com.doubao.Murmur.desktop /app/share/applications/com.doubao.Murmur.desktop
+      - install -D flatpak/com.doubao.Murmur.metainfo.xml /app/share/metainfo/com.doubao.Murmur.metainfo.xml
+    sources:
+      - type: dir
+        path: ..
