@@ -114,7 +114,11 @@ class TrayIcon:
 
         self._window.set_child(box)
         self._rebuild_menu()
-        self._window.present()
+        # Start minimized: only pop up when user action is required
+        # (not logged in). Re-activating the app (launching it again)
+        # presents the window via show_window().
+        if self.app_state.login_status != LoginStatus.LOGGED_IN:
+            self._window.present()
 
     def _rebuild_menu(self, *_args) -> None:
         """Rebuild the tray menu or refresh the control window."""
@@ -185,6 +189,13 @@ class TrayIcon:
         else:
             self._on_login_clicked()
 
+    def show_window(self) -> None:
+        """Present the control window (e.g. on app re-activation)."""
+        if self._window:
+            self._window.present()
+
     def _on_control_close(self, _window) -> bool:
-        self._on_quit_clicked()
+        # Hide instead of quit — the app keeps running for the hotkey.
+        # Quit via the window's 退出 button.
+        self._window.set_visible(False)
         return True

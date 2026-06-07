@@ -46,6 +46,10 @@ class DoubaoMurmurApp(Gtk.Application):
 
     def do_activate(self):
         if self._setup_done:
+            # Second launch of the single-instance app: surface the
+            # control window (it starts hidden when logged in).
+            if self.tray_icon:
+                self.tray_icon.show_window()
             return
         self._setup_done = True
         # None of our windows are Gtk.ApplicationWindows, so hold the
