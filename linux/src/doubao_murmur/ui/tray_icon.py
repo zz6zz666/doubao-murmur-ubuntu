@@ -1,8 +1,12 @@
-"""System tray/control surface.
+"""System tray / control surface.
 
-KDE Plasma supports StatusNotifierItem via DBus, but the common
-AyatanaAppIndicator3 bindings expect GTK3 menu widgets. The GTK4-safe fallback
-is a small control window that exposes the same commands.
+GTK4 removed GtkStatusIcon and AyatanaAppIndicator3 needs GTK3 menus, so
+the tray icon is implemented over raw DBus (StatusNotifierItem — see
+sni_tray.py), which KDE Plasma and most other trays speak natively.
+
+A small control window backs it up: it is the click target of the tray
+icon, the fallback UI when no StatusNotifierWatcher is running (e.g. stock
+GNOME), and what a second app launch brings up.
 """
 
 from __future__ import annotations
@@ -12,27 +16,19 @@ import logging
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import GLib, Gtk
+from gi.repository import Gdk, Gtk
 
 from doubao_murmur.app_state import AppState, LoginStatus
+from doubao_murmur.ui.sni_tray import SniTray
 
 logger = logging.getLogger(__name__)
 
-# Try AyatanaAppIndicator3
-_HAS_APPINDICATOR = False
-try:
-    gi.require_version("AyatanaAppIndicator3", "0.1")
-    from gi.repository import AyatanaAppIndicator3
-
-    _HAS_APPINDICATOR = True
-except (ImportError, ValueError):
-    pass
-
-_CAN_USE_APPINDICATOR = _HAS_APPINDICATOR and hasattr(Gtk, "Menu")
+_APP_ICON = "com.doubao.Murmur"
+_FALLBACK_ICON = "audio-input-microphone"
 
 
 class TrayIcon:
-    """System tray icon with status menu."""
+    """System tray icon (SNI) plus control window."""
 
     def __init__(
         self,
@@ -47,42 +43,86 @@ class TrayIcon:
         self._on_logout_clicked = on_logout_clicked
         self._on_quit_clicked = on_quit_clicked
         self._on_help_clicked = on_help_clicked
-        self._indicator = None
-        self._menu = None
+        self._sni: SniTray | None = None
         self._window: Gtk.Window | None = None
         self._status_label: Gtk.Label | None = None
         self._primary_button: Gtk.Button | None = None
 
     def start(self) -> None:
-        """Create the tray icon or GTK4 fallback control window."""
-        if _CAN_USE_APPINDICATOR:
-            self._start_appindicator()
-        else:
-            logger.warning(
-                "GTK4-compatible tray backend unavailable; using control window"
-            )
-            self._start_control_window()
-
-        # Watch for state changes
+        """Create the control window and (if possible) the tray icon."""
+        self._build_control_window()
+        self._start_sni()
         self.app_state.connect(
-            "login-status-changed", lambda *_: self._rebuild_menu()
+            "login-status-changed", lambda *_: self._refresh()
         )
+        self._refresh()
+        # Start minimized: only pop up when user action is required
+        # (not logged in). Re-activating the app (launching it again)
+        # or clicking the tray icon presents the window.
+        if self.app_state.login_status != LoginStatus.LOGGED_IN:
+            self._window.present()
 
-    def _start_appindicator(self) -> None:
-        self._indicator = AyatanaAppIndicator3.Indicator.new(
-            "doubao-murmur",
-            "audio-input-microphone-symbolic",
-            AyatanaAppIndicator3.IndicatorCategory.APPLICATION_STATUS,
-        )
-        self._indicator.set_status(
-            AyatanaAppIndicator3.IndicatorStatus.ACTIVE
-        )
+    # -- tray icon -----------------------------------------------------------
 
-        self._menu = Gtk.Menu()
-        self._rebuild_menu()
-        self._indicator.set_menu(self._menu)
+    def _start_sni(self) -> None:
+        try:
+            tray = SniTray(
+                item_id="doubao-murmur",
+                title="Doubao Murmur",
+                tooltip="豆包语音输入",
+                icon_name=self._pick_icon(),
+                on_activate=self.show_window,
+            )
+            if tray.start():
+                self._sni = tray
+        except Exception:
+            logger.exception("Tray icon unavailable; control window only")
 
-    def _start_control_window(self) -> None:
+    @staticmethod
+    def _pick_icon() -> str:
+        """App icon if installed (Flatpak/system), generic mic otherwise."""
+        try:
+            display = Gdk.Display.get_default()
+            if display:
+                theme = Gtk.IconTheme.get_for_display(display)
+                if theme.has_icon(_APP_ICON):
+                    return _APP_ICON
+        except Exception:
+            pass
+        return _FALLBACK_ICON
+
+    def _menu_items(self) -> list[dict | None]:
+        logged_in = self.app_state.login_status == LoginStatus.LOGGED_IN
+        status_map = {
+            LoginStatus.CHECKING: "⏳ 检查中...",
+            LoginStatus.LOGGED_IN: "✅ 已登录",
+            LoginStatus.NOT_LOGGED_IN: "❌ 未登录",
+        }
+        items: list[dict | None] = [
+            {
+                "label": status_map.get(self.app_state.login_status, "⏳"),
+                "enabled": False,
+            },
+            None,
+            {
+                "label": "退出登录" if logged_in else "登录豆包",
+                "callback": (
+                    self._on_logout_clicked
+                    if logged_in
+                    else self._on_login_clicked
+                ),
+            },
+            {"label": "控制面板", "callback": self.show_window},
+        ]
+        if self._on_help_clicked:
+            items.append({"label": "使用帮助", "callback": self._on_help_clicked})
+        items.append(None)
+        items.append({"label": "退出", "callback": self._on_quit_clicked})
+        return items
+
+    # -- control window --------------------------------------------------------
+
+    def _build_control_window(self) -> None:
         self._window = Gtk.Window()
         self._window.set_title("Doubao Murmur")
         self._window.set_default_size(320, 180)
@@ -113,61 +153,12 @@ class TrayIcon:
         box.append(quit_button)
 
         self._window.set_child(box)
-        self._rebuild_menu()
-        # Start minimized: only pop up when user action is required
-        # (not logged in). Re-activating the app (launching it again)
-        # presents the window via show_window().
-        if self.app_state.login_status != LoginStatus.LOGGED_IN:
-            self._window.present()
 
-    def _rebuild_menu(self, *_args) -> None:
-        """Rebuild the tray menu or refresh the control window."""
-        if self._window:
-            self._refresh_control_window()
-            return
+    def _refresh(self) -> None:
+        """Sync tray menu and control window with the current state."""
+        if self._sni:
+            self._sni.set_menu(self._menu_items())
 
-        if not self._menu:
-            return
-
-        # Clear existing items
-        for child in self._menu.get_children():
-            self._menu.remove(child)
-
-        # Status label
-        status_map = {
-            LoginStatus.CHECKING: "⏳ 检查中...",
-            LoginStatus.LOGGED_IN: "✅ 已登录",
-            LoginStatus.NOT_LOGGED_IN: "❌ 未登录",
-        }
-        status = status_map.get(self.app_state.login_status, "⏳")
-        item = Gtk.MenuItem(label=status)
-        item.set_sensitive(False)
-        self._menu.append(item)
-        self._menu.append(Gtk.SeparatorMenuItem())
-
-        if self.app_state.login_status != LoginStatus.LOGGED_IN:
-            item = Gtk.MenuItem(label="登录豆包")
-            item.connect("activate", lambda _: self._on_login_clicked())
-            self._menu.append(item)
-        else:
-            item = Gtk.MenuItem(label="退出登录")
-            item.connect("activate", lambda _: self._on_logout_clicked())
-            self._menu.append(item)
-
-        if self._on_help_clicked:
-            item = Gtk.MenuItem(label="使用帮助")
-            item.connect("activate", lambda _: self._on_help_clicked())
-            self._menu.append(item)
-
-        self._menu.append(Gtk.SeparatorMenuItem())
-
-        item = Gtk.MenuItem(label="退出")
-        item.connect("activate", lambda _: self._on_quit_clicked())
-        self._menu.append(item)
-
-        self._menu.show_all()
-
-    def _refresh_control_window(self) -> None:
         status_map = {
             LoginStatus.CHECKING: "状态：检查中...",
             LoginStatus.LOGGED_IN: "状态：已登录",
@@ -190,12 +181,12 @@ class TrayIcon:
             self._on_login_clicked()
 
     def show_window(self) -> None:
-        """Present the control window (e.g. on app re-activation)."""
+        """Present the control window (tray click / app re-activation)."""
         if self._window:
             self._window.present()
 
     def _on_control_close(self, _window) -> bool:
         # Hide instead of quit — the app keeps running for the hotkey.
-        # Quit via the window's 退出 button.
+        # Quit via the tray menu or the window's 退出 button.
         self._window.set_visible(False)
         return True

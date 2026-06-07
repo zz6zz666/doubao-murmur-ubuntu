@@ -28,6 +28,9 @@ finish-args:
   - --talk-name=org.freedesktop.portal.Desktop
   - --talk-name=org.freedesktop.Flatpak
 
+  # System tray (StatusNotifierItem registration with KDE/compatible trays)
+  - --talk-name=org.kde.StatusNotifierWatcher
+
   # Version-independent module path (see app module install step)
   - --env=PYTHONPATH=/app/lib/python/site-packages
 
