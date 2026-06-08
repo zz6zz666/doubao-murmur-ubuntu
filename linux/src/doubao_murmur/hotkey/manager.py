@@ -23,11 +23,13 @@ class HotkeyManager:
     def __init__(self) -> None:
         self.on_toggle = None  # () -> None
         self.on_cancel = None  # () -> None
+        self.on_keyboard = None  # () -> None (toggle on-screen keyboard)
         self._overlay_button = None
         self._evdev_listener = None
         self._x11_listener = None
         self._cancel_enabled = False
         self._last_toggle_time = 0.0
+        self._last_keyboard_time = 0.0
 
     def start(
         self, overlay_button, evdev_listener=None, x11_listener=None
@@ -82,6 +84,22 @@ class HotkeyManager:
         """Called by input backends for cancel (ESC)."""
         if self._cancel_enabled:
             GLib.idle_add(self._dispatch_cancel)
+
+    def trigger_keyboard(self) -> None:
+        """Called by input backends for the on-screen-keyboard hotkey.
+
+        Debounced so key auto-repeat (holding the chord) toggles once.
+        """
+        now = time.monotonic()
+        if now - self._last_keyboard_time < DEBOUNCE_INTERVAL:
+            return
+        self._last_keyboard_time = now
+        GLib.idle_add(self._dispatch_keyboard)
+
+    def _dispatch_keyboard(self) -> bool:
+        if self.on_keyboard:
+            self.on_keyboard()
+        return GLib.SOURCE_REMOVE
 
     def _dispatch_toggle(self) -> bool:
         if self.on_toggle:

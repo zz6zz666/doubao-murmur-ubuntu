@@ -40,6 +40,10 @@ class OverlayRole(Enum):
 
     STATUS = "status"
     PTT = "ptt"
+    # The on-screen keyboard manages its own position/size (restored from
+    # config, draggable by the user), so it is pinned above + non-focusing
+    # like the others but never auto-positioned.
+    KEYBOARD = "keyboard"
 
 
 def apply_overlay_window_hints(window: Gtk.Window, role: OverlayRole) -> None:
@@ -153,15 +157,17 @@ def _x11_pin_above(window: Gtk.Window, role: OverlayRole, state: dict) -> bool:
     xid = surface.get_xid()
 
     x = y = None
-    display = window.get_display()
-    monitor = display.get_monitors().get_item(0) if display else None
-    if monitor is not None:
-        geo = monitor.get_geometry()
-        x = geo.x + (geo.width - width) // 2
-        if role == OverlayRole.PTT:
-            y = geo.y + geo.height - height - 24
-        else:
-            y = geo.y + 16
+    # The keyboard restores its own saved geometry; never auto-place it.
+    if role != OverlayRole.KEYBOARD:
+        display = window.get_display()
+        monitor = display.get_monitors().get_item(0) if display else None
+        if monitor is not None:
+            geo = monitor.get_geometry()
+            x = geo.x + (geo.width - width) // 2
+            if role == OverlayRole.PTT:
+                y = geo.y + geo.height - height - 24
+            else:
+                y = geo.y + 16
 
     _x11_apply_wm_state(xid, x, y)
     return GLib.SOURCE_REMOVE
@@ -255,3 +261,109 @@ def _x11_apply_wm_state(xid: int, x: int | None, y: int | None) -> None:
     except Exception as e:
         logger.warning("X11 keep-above failed: %s", e)
         _x11_conn = None
+
+
+def _x11_surface(window: Gtk.Window):
+    """Return the live X11Surface for a window, or None off-X11."""
+    surface = window.get_surface()
+    if surface is None or GdkX11 is None or not isinstance(
+        surface, GdkX11.X11Surface
+    ):
+        return None
+    return surface
+
+
+def x11_move(window: Gtk.Window, x: int, y: int) -> None:
+    """Move a mapped window to absolute screen coordinates (X11 only).
+
+    GTK4 dropped ``Gtk.Window.move``; the keyboard's drag handle and saved
+    position are applied straight through Xlib instead.
+    """
+    surface = _x11_surface(window)
+    if surface is None:
+        return
+    global _x11_conn
+    try:
+        from Xlib.display import Display
+
+        if _x11_conn is None:
+            _x11_conn = Display()
+        win = _x11_conn.create_resource_object("window", surface.get_xid())
+        win.configure(x=int(x), y=int(y))
+        _x11_conn.flush()
+    except Exception as e:
+        logger.warning("X11 move failed: %s", e)
+        _x11_conn = None
+
+
+def x11_move_resize(
+    window: Gtk.Window, x: int, y: int, width: int, height: int
+) -> None:
+    """Move and resize a mapped window via Xlib (X11 only).
+
+    GTK4 sizes top-levels to their content and offers no ``resize()``;
+    forcing the X11 geometry resizes the surface and GTK reallocates its
+    children to fill it.
+    """
+    surface = _x11_surface(window)
+    if surface is None:
+        return
+    global _x11_conn
+    try:
+        from Xlib.display import Display
+
+        if _x11_conn is None:
+            _x11_conn = Display()
+        win = _x11_conn.create_resource_object("window", surface.get_xid())
+        win.configure(
+            x=int(x), y=int(y), width=int(width), height=int(height)
+        )
+        _x11_conn.flush()
+    except Exception as e:
+        logger.warning("X11 move/resize failed: %s", e)
+        _x11_conn = None
+
+
+def x11_pointer() -> tuple[int, int] | None:
+    """Return the absolute pointer position in root coords (X11 only).
+
+    Used to drive drag-to-move/resize without the feedback jitter you get
+    from widget-relative gesture offsets when the window moves under the
+    finger.
+    """
+    global _x11_conn
+    try:
+        from Xlib.display import Display
+
+        if _x11_conn is None:
+            _x11_conn = Display()
+        data = _x11_conn.screen().root.query_pointer()
+        return (data.root_x, data.root_y)
+    except Exception as e:
+        logger.warning("X11 query pointer failed: %s", e)
+        _x11_conn = None
+        return None
+
+
+def x11_button1_down() -> bool:
+    """Whether the primary pointer button is currently pressed (X11 only).
+
+    Used as a leak-proof guard for key auto-repeat: a touch press shows up
+    as Button1 under KDE's mouse-emulation, so each repeat tick can verify
+    the finger is still down and stop the moment it lifts — even if the
+    GestureClick release/cancel event was lost. Returns False on any error,
+    which safely stops repeating.
+    """
+    global _x11_conn
+    try:
+        from Xlib import X
+        from Xlib.display import Display
+
+        if _x11_conn is None:
+            _x11_conn = Display()
+        data = _x11_conn.screen().root.query_pointer()
+        return bool(data.mask & X.Button1Mask)
+    except Exception as e:
+        logger.warning("X11 query button failed: %s", e)
+        _x11_conn = None
+        return False

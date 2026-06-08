@@ -11,12 +11,11 @@ Methods (in priority order):
 from __future__ import annotations
 
 import logging
-import os
-import shutil
 import subprocess
 import time
 
 from doubao_murmur.config import PASTE_DELAY
+from doubao_murmur.host_tools import command_candidates
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +67,7 @@ class PasteHelper:
     def _copy_to_clipboard(text: str) -> None:
         """Copy text to system clipboard."""
         # Try Wayland first
-        for command in PasteHelper._command_candidates("wl-copy"):
+        for command in command_candidates("wl-copy"):
             try:
                 subprocess.run(
                     command,
@@ -82,7 +81,7 @@ class PasteHelper:
                 logger.warning("wl-copy failed: %s", e)
 
         # Try X11
-        for command in PasteHelper._command_candidates("xclip"):
+        for command in command_candidates("xclip"):
             try:
                 subprocess.run(
                     command + ["-selection", "clipboard"],
@@ -96,7 +95,7 @@ class PasteHelper:
                 logger.warning("xclip failed: %s", e)
 
         # Try xsel
-        for command in PasteHelper._command_candidates("xsel"):
+        for command in command_candidates("xsel"):
             try:
                 subprocess.run(
                     command + ["--clipboard", "--input"],
@@ -135,7 +134,7 @@ class PasteHelper:
             ydotool_keys = ["29:1", "42:1", "47:1", "47:0", "42:0", "29:0"]
         else:
             ydotool_keys = ["29:1", "47:1", "47:0", "29:0"]
-        for command in PasteHelper._command_candidates("ydotool"):
+        for command in command_candidates("ydotool"):
             try:
                 subprocess.run(
                     command + ["key"] + ydotool_keys,
@@ -153,7 +152,7 @@ class PasteHelper:
                           "-m", "shift", "-m", "ctrl"]
         else:
             wtype_args = ["-M", "ctrl", "-P", "v", "-m", "ctrl"]
-        for command in PasteHelper._command_candidates("wtype"):
+        for command in command_candidates("wtype"):
             try:
                 subprocess.run(
                     command + wtype_args,
@@ -167,7 +166,7 @@ class PasteHelper:
 
         # Try xdotool (X11 only)
         xdotool_key = "ctrl+shift+v" if use_shift else "ctrl+v"
-        for command in PasteHelper._command_candidates("xdotool"):
+        for command in command_candidates("xdotool"):
             try:
                 subprocess.run(
                     command + ["key", xdotool_key],
@@ -188,7 +187,7 @@ class PasteHelper:
     @staticmethod
     def _focused_window_is_terminal() -> bool:
         """Check whether the focused window is a terminal emulator (X11)."""
-        for command in PasteHelper._command_candidates("xdotool"):
+        for command in command_candidates("xdotool"):
             try:
                 result = subprocess.run(
                     command + ["getactivewindow", "getwindowclassname"],
@@ -207,17 +206,3 @@ class PasteHelper:
             except Exception as e:
                 logger.warning("Active window detection failed: %s", e)
         return False
-
-    @staticmethod
-    def _command_candidates(tool: str) -> list[list[str]]:
-        """Return executable command prefixes for a host helper tool."""
-        commands: list[list[str]] = []
-        if shutil.which(tool):
-            commands.append([tool])
-        if PasteHelper._is_flatpak() and shutil.which("flatpak-spawn"):
-            commands.append(["flatpak-spawn", "--host", tool])
-        return commands
-
-    @staticmethod
-    def _is_flatpak() -> bool:
-        return os.path.exists("/.flatpak-info")

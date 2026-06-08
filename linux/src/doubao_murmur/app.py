@@ -17,6 +17,7 @@ from doubao_murmur.hotkey.evdev_listener import EvdevListener
 from doubao_murmur.hotkey.manager import HotkeyManager
 from doubao_murmur.hotkey.x11_listener import X11KeyListener
 from doubao_murmur.hotkey.overlay_button import OverlayButton
+from doubao_murmur.keyboard.keyboard_window import KeyboardWindow
 from doubao_murmur.params_store import ParamsStore
 from doubao_murmur.paste.paste_helper import PasteHelper
 from doubao_murmur.transcription import TranscriptionManager
@@ -42,6 +43,7 @@ class DoubaoMurmurApp(Gtk.Application):
         self.hotkey_manager: HotkeyManager | None = None
         self.transcription_manager: TranscriptionManager | None = None
         self.ptt_button: OverlayButton | None = None
+        self.keyboard: KeyboardWindow | None = None
         self._setup_done = False
 
     def do_activate(self):
@@ -93,6 +95,7 @@ class DoubaoMurmurApp(Gtk.Application):
         self.hotkey_manager = HotkeyManager()
         self.hotkey_manager.on_toggle = self.transcription_manager.handle_toggle
         self.hotkey_manager.on_cancel = self.transcription_manager.handle_cancel
+        self.hotkey_manager.on_keyboard = self._toggle_keyboard
 
         # Prefer the X11 listener: it sees both physical keys and
         # XTEST-injected ones (Steam Input desktop layouts inject
@@ -104,6 +107,7 @@ class DoubaoMurmurApp(Gtk.Application):
             x11 = X11KeyListener(
                 on_toggle=self.hotkey_manager.trigger_toggle,
                 on_escape=self.hotkey_manager.trigger_cancel,
+                on_keyboard=self.hotkey_manager.trigger_keyboard,
             )
         elif EvdevListener.is_available():
             evdev = EvdevListener(
@@ -136,17 +140,42 @@ class DoubaoMurmurApp(Gtk.Application):
             "login-status-changed", self._on_login_status_changed
         )
 
-        # 6. Create tray icon
+        # 6. Create on-screen keyboard (lazily shown via tray)
+        self.keyboard = KeyboardWindow()
+
+        # 7. Create tray icon
         self.tray_icon = TrayIcon(
             app_state=self.app_state,
             on_login_clicked=self._show_login,
             on_logout_clicked=self._do_logout,
             on_quit_clicked=self._quit,
             on_help_clicked=self._show_help,
+            on_keyboard_clicked=self._toggle_keyboard,
         )
         self.tray_icon.start()
 
         logger.info("All components initialized")
+
+    def _toggle_keyboard(self) -> None:
+        if not self.keyboard:
+            return
+        if not self.keyboard.available():
+            dialog = Gtk.MessageDialog(
+                transient_for=None,
+                modal=True,
+                message_type=Gtk.MessageType.ERROR,
+                buttons=Gtk.ButtonsType.OK,
+                text="软键盘不可用",
+            )
+            dialog.set_property(
+                "secondary-text",
+                "需要 xdotool 才能把按键输入到其他窗口。\n"
+                "sudo pacman -S xdotool",
+            )
+            dialog.connect("response", lambda d, _: d.destroy())
+            dialog.present()
+            return
+        self.keyboard.toggle()
 
     def _show_login(self) -> None:
         if not LoginWindow.is_available():
@@ -299,9 +328,10 @@ class DoubaoMurmurApp(Gtk.Application):
             "3. 再次点击 🎤 按钮停止录音\n"
             "4. 识别结果会自动粘贴到当前输入框\n\n"
             "按 ESC 键可取消当前录音\n\n"
-            "快捷键（需要 input 组权限）：\n"
+            "快捷键：\n"
             "  右 Alt 键：切换录音\n"
-            "  ESC 键：取消录音",
+            "  ESC 键：取消录音\n"
+            "  Alt + Shift + F10 + F11：显示 / 隐藏软键盘",
         )
         dialog.connect("response", lambda d, _: d.destroy())
         dialog.present()

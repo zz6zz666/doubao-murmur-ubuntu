@@ -37,12 +37,14 @@ class TrayIcon:
         on_logout_clicked,
         on_quit_clicked,
         on_help_clicked=None,
+        on_keyboard_clicked=None,
     ) -> None:
         self.app_state = app_state
         self._on_login_clicked = on_login_clicked
         self._on_logout_clicked = on_logout_clicked
         self._on_quit_clicked = on_quit_clicked
         self._on_help_clicked = on_help_clicked
+        self._on_keyboard_clicked = on_keyboard_clicked
         self._sni: SniTray | None = None
         self._window: Gtk.Window | None = None
         self._status_label: Gtk.Label | None = None
@@ -114,6 +116,10 @@ class TrayIcon:
             },
             {"label": "控制面板", "callback": self.show_window},
         ]
+        if self._on_keyboard_clicked:
+            items.append(
+                {"label": "⌨ 软键盘", "callback": self._on_keyboard_clicked}
+            )
         if self._on_help_clicked:
             items.append({"label": "使用帮助", "callback": self._on_help_clicked})
         items.append(None)
@@ -142,6 +148,13 @@ class TrayIcon:
         self._primary_button = Gtk.Button()
         self._primary_button.connect("clicked", self._on_primary_clicked)
         box.append(self._primary_button)
+
+        if self._on_keyboard_clicked:
+            keyboard_button = Gtk.Button(label="⌨ 软键盘")
+            keyboard_button.connect(
+                "clicked", lambda _: self._on_keyboard_clicked()
+            )
+            box.append(keyboard_button)
 
         if self._on_help_clicked:
             help_button = Gtk.Button(label="使用帮助")
