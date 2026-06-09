@@ -3,7 +3,7 @@
 通过劫持豆包 Web 版的语音识别能力，实现全局语音输入。支持 **macOS** 和 **Linux / SteamOS**（Steam Deck 等掌机）。
 
 - **macOS**：按下右 `⌥ Option` 键开始/停止语音识别，识别结果自动复制到剪贴板并粘贴到当前光标所在的输入框。
-- **Linux / SteamOS**：按下右 `Alt` 键开始/停止；掌机上可在 Steam Input 桌面布局中把任意手柄按键（如 R3/R2）映射为右 Alt，即可**用手柄一键语音输入**。详见 [Linux 版说明](linux/README.md)。
+- **Linux / SteamOS**：按下右 `Alt` 键开始/停止；掌机上可在 Steam Input 桌面布局中把任意手柄按键（如 R3/R2）映射为右 Alt，即可**用手柄一键语音输入**。另外还内置了 **SteamOS 桌面模式的触摸软键盘**——可拖动 / 可缩放，并支持**分体**与**左 / 右单手**布局，方便掌机握持时打字。详见 [Linux 版说明](linux/README.md)。
 
 <p align="center">
   <img src="docs/screenshots/overlay_pannel.png" width="500" alt="语音识别悬浮窗">
