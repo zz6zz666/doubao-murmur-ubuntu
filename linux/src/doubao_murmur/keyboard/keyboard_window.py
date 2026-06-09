@@ -114,7 +114,7 @@ _CSS = b"""
 }
 .key:hover { background: linear-gradient(180deg, #565a60, #45484e); }
 .key:active {
-    background: #303237;
+    background: #6b7079;
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.45);
 }
 .key-mod, .key-layer {

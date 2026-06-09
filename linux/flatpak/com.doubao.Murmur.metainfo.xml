@@ -24,6 +24,13 @@
   <url type="homepage">https://github.com/lilong7676/doubao-murmur</url>
   <developer_name>lilong7676</developer_name>
   <releases>
+    <release version="1.4.1" date="2026-06-09">
+      <description>
+        <p>On-screen keyboard: make key presses reliable on the touchscreen
+           (fire on the native button click, drop the gesture/poll path that
+           dropped touch-release events and could deadlock the keyboard)</p>
+      </description>
+    </release>
     <release version="1.4.0" date="2026-06-08">
       <description>
         <p>Add an on-screen touch keyboard: full/split/one-handed layout
