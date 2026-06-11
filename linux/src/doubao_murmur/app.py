@@ -331,7 +331,7 @@ class DoubaoMurmurApp(Gtk.Application):
             "快捷键：\n"
             "  右 Alt 键：切换录音\n"
             "  ESC 键：取消录音\n"
-            "  Alt + Shift + F10 + F11：显示 / 隐藏软键盘",
+            "  Ctrl + Super + Shift：显示 / 隐藏软键盘",
         )
         dialog.connect("response", lambda d, _: d.destroy())
         dialog.present()

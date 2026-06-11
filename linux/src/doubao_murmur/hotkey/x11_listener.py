@@ -36,13 +36,17 @@ class X11KeyListener:
         self._other_key_pressed = False
         self._kc_alt_r = 0
         self._kc_escape = 0
-        # For the Alt+Shift+F10+F11 chord that toggles the on-screen keyboard.
-        self._kc_alt_l = 0
+        # For the Ctrl+Super+Shift chord that toggles the on-screen keyboard.
+        # All modifier keys -> they never emit characters, so the passive
+        # XRecord listener can't leak them into a focused terminal.
+        self._kc_ctrl_l = 0
+        self._kc_ctrl_r = 0
+        self._kc_super_l = 0
+        self._kc_super_r = 0
         self._kc_shift_l = 0
         self._kc_shift_r = 0
-        self._kc_f10 = 0
-        self._kc_f11 = 0
         self._chord_down: set[int] = set()
+        self._chord_fired = False
 
     @staticmethod
     def is_available() -> bool:
@@ -72,11 +76,12 @@ class X11KeyListener:
 
             self._kc_alt_r = self._ctrl_dpy.keysym_to_keycode(XK.XK_Alt_R)
             self._kc_escape = self._ctrl_dpy.keysym_to_keycode(XK.XK_Escape)
-            self._kc_alt_l = self._ctrl_dpy.keysym_to_keycode(XK.XK_Alt_L)
+            self._kc_ctrl_l = self._ctrl_dpy.keysym_to_keycode(XK.XK_Control_L)
+            self._kc_ctrl_r = self._ctrl_dpy.keysym_to_keycode(XK.XK_Control_R)
+            self._kc_super_l = self._ctrl_dpy.keysym_to_keycode(XK.XK_Super_L)
+            self._kc_super_r = self._ctrl_dpy.keysym_to_keycode(XK.XK_Super_R)
             self._kc_shift_l = self._ctrl_dpy.keysym_to_keycode(XK.XK_Shift_L)
             self._kc_shift_r = self._ctrl_dpy.keysym_to_keycode(XK.XK_Shift_R)
-            self._kc_f10 = self._ctrl_dpy.keysym_to_keycode(XK.XK_F10)
-            self._kc_f11 = self._ctrl_dpy.keysym_to_keycode(XK.XK_F11)
 
             from Xlib import X
 
@@ -166,28 +171,31 @@ class X11KeyListener:
                 self._handle_key(event.detail, pressed=False)
 
     def _handle_key(self, keycode: int, pressed: bool) -> None:
-        # Track the keys that make up the keyboard-toggle chord.
-        if keycode in (
-            self._kc_alt_l, self._kc_alt_r,
+        # Track the modifier keys that make up the keyboard-toggle chord.
+        chord_keys = (
+            self._kc_ctrl_l, self._kc_ctrl_r,
+            self._kc_super_l, self._kc_super_r,
             self._kc_shift_l, self._kc_shift_r,
-            self._kc_f10, self._kc_f11,
-        ):
+        )
+        if keycode in chord_keys:
             if pressed:
                 self._chord_down.add(keycode)
             else:
                 self._chord_down.discard(keycode)
 
-        # Alt + Shift + F10 + F11 (all held) -> toggle the on-screen keyboard.
+        # Ctrl + Super + Shift (all held) -> toggle the on-screen keyboard.
+        # Pure modifiers emit no characters, so nothing leaks to the terminal.
         down = self._chord_down
-        if (
-            pressed
-            and keycode in (self._kc_f10, self._kc_f11)
-            and self.on_keyboard
-            and (self._kc_alt_l in down or self._kc_alt_r in down)
+        chord_complete = (
+            (self._kc_ctrl_l in down or self._kc_ctrl_r in down)
+            and (self._kc_super_l in down or self._kc_super_r in down)
             and (self._kc_shift_l in down or self._kc_shift_r in down)
-            and self._kc_f10 in down
-            and self._kc_f11 in down
-        ):
+        )
+        if not chord_complete:
+            # Re-arm once the chord is broken so the next press can fire again.
+            self._chord_fired = False
+        elif pressed and not self._chord_fired and self.on_keyboard:
+            self._chord_fired = True
             self.on_keyboard()
             # Don't let a right-Alt-held chord also fire dictation toggle.
             self._other_key_pressed = True

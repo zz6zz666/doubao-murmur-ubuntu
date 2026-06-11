@@ -24,6 +24,14 @@
   <url type="homepage">https://github.com/lilong7676/doubao-murmur</url>
   <developer_name>lilong7676</developer_name>
   <releases>
+    <release version="1.4.2" date="2026-06-11">
+      <description>
+        <p>Change the on-screen keyboard's global hotkey to Ctrl+Super+Shift
+           (pure modifiers). The old Alt+Shift+F10+F11 chord leaked F-key
+           escape sequences into focused terminals; modifier-only keys emit
+           no characters, so nothing leaks.</p>
+      </description>
+    </release>
     <release version="1.4.1" date="2026-06-09">
       <description>
         <p>On-screen keyboard: make key presses reliable on the touchscreen
