@@ -13,10 +13,16 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
-from gi.repository import Gdk, GLib, Gtk
+gi.require_version("Pango", "1.0")
+from gi.repository import Gdk, GLib, Gtk, Pango
 
 from doubao_murmur.app_state import RecordingState
-from doubao_murmur.config import OVERLAY_HEIGHT, OVERLAY_WIDTH
+from doubao_murmur.config import (
+    OVERLAY_HEIGHT,
+    OVERLAY_MAX_LINES,
+    OVERLAY_TEXT_CHARS,
+    OVERLAY_WIDTH,
+)
 from doubao_murmur.ui.windowing import (
     OverlayRole,
     apply_overlay_window_hints,
@@ -70,20 +76,34 @@ class Overlay:
         box.set_margin_top(10)
         box.set_margin_bottom(10)
 
-        # Recording indicator
+        # Recording indicator (pinned to the top so it lines up with the
+        # first line of text when the overlay grows to several lines).
         self._indicator = Gtk.DrawingArea()
         self._indicator.set_size_request(14, 14)
+        self._indicator.set_valign(Gtk.Align.START)
+        self._indicator.set_margin_top(2)
         self._indicator.set_draw_func(self._draw_indicator)
         box.append(self._indicator)
 
         # Transcription text label
         self._label = Gtk.Label()
         self._label.set_xalign(0)
-        # Ellipsize at the START so the newest dictated words are always
-        # the visible ones while speaking.
-        self._label.set_ellipsize(1)  # Pango.EllipsizeMode.START
-        self._label.set_lines(2)
+        self._label.set_yalign(0)
         self._label.set_wrap(True)
+        # Chinese has no inter-word spaces, so the default WORD wrap mode
+        # finds no break points and the text overflows (then gets cut off
+        # with an ellipsis). WORD_CHAR also breaks between characters.
+        self._label.set_wrap_mode(Pango.WrapMode.WORD_CHAR)
+        # Fix the wrap column so the (non-resizable) window keeps a stable
+        # width and grows in height as the text wraps, instead of being
+        # pinned at two lines.
+        self._label.set_width_chars(OVERLAY_TEXT_CHARS)
+        self._label.set_max_width_chars(OVERLAY_TEXT_CHARS)
+        # Grow up to a few lines; only once that cap is reached do the
+        # oldest words scroll off (ellipsis at the START), keeping the
+        # newest dictated words visible.
+        self._label.set_lines(OVERLAY_MAX_LINES)
+        self._label.set_ellipsize(Pango.EllipsizeMode.START)
         self._label.add_css_class("overlay-label")
         box.append(self._label)
 

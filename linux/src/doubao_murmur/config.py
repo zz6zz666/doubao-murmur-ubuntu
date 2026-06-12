@@ -80,6 +80,11 @@ AUTH_EXPIRY_DELAY = 2.0  # seconds before resetting after auth error
 
 OVERLAY_WIDTH = 760
 OVERLAY_HEIGHT = 88
+# Transcription text wraps within this many "characters" (Pango's average
+# char-width unit ~= the old 760px text column) and the overlay grows in
+# height up to OVERLAY_MAX_LINES before the oldest words scroll off.
+OVERLAY_TEXT_CHARS = 88
+OVERLAY_MAX_LINES = 5
 PTT_BUTTON_SIZE = 60
 
 # --- User-Agent for WebView ---

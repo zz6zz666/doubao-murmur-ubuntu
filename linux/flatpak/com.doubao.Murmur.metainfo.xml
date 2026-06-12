@@ -24,6 +24,15 @@
   <url type="homepage">https://github.com/lilong7676/doubao-murmur</url>
   <developer_name>lilong7676</developer_name>
   <releases>
+    <release version="1.4.3" date="2026-06-12">
+      <description>
+        <p>Recording overlay: wrap transcription text properly. Chinese has no
+           spaces, so the default word-wrap found no break points and the text
+           overflowed into a head-truncating ellipsis pinned at two lines. The
+           overlay now wraps between characters and grows in height up to five
+           lines before the oldest words scroll off.</p>
+      </description>
+    </release>
     <release version="1.4.2" date="2026-06-11">
       <description>
         <p>Change the on-screen keyboard's global hotkey to Ctrl+Super+Shift
