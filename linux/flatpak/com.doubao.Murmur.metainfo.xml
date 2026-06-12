@@ -24,6 +24,15 @@
   <url type="homepage">https://github.com/lilong7676/doubao-murmur</url>
   <developer_name>lilong7676</developer_name>
   <releases>
+    <release version="1.4.4" date="2026-06-12">
+      <description>
+        <p>On-screen keyboard one-handed mode: widen from 22% to 35% of the
+           screen so keys are large enough to tap (~6mm instead of ~4mm), and
+           fix a keyboard reopened directly in a one-handed/split mode keeping
+           a stale saved width and missing its compact styling. Width is now
+           always derived from the current mode and monitor.</p>
+      </description>
+    </release>
     <release version="1.4.3" date="2026-06-12">
       <description>
         <p>Recording overlay: wrap transcription text properly. Chinese has no

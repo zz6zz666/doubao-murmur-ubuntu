@@ -62,9 +62,12 @@ MODE_LABELS = {
     "left": "左手",
     "right": "右手",
 }
-# One-handed keyboard width as a fraction of the monitor (phone-sized, docked
-# to the reachable edge).
-_ONEHAND_FRAC = 0.22
+# One-handed keyboard width as a fraction of the monitor. The thumb's reach is
+# only ~20% of the screen, but cramming a full 10-column keyboard into that
+# makes every key ~4mm wide — too small to hit. 0.35 keeps keys ~6mm (just
+# tappable) while staying within a one-handed grip's sweep; the keyboard still
+# docks to the reachable edge.
+_ONEHAND_FRAC = 0.35
 # Split mode: the wider of the two half-keyboards occupies this fraction of
 # the screen at its edge; the unreachable middle is left empty.
 _SPLIT_SIDE_FRAC = 0.22
@@ -244,6 +247,9 @@ class KeyboardWindow:
 
         self._window.set_child(root)
         self._rebuild_keys()
+        # Style the strip/keys for the restored mode (compact + hidden presets
+        # for one-handed); geometry is asserted in show().
+        self._sync_mode_styling()
 
     def _build_strip(self) -> Gtk.Widget:
         strip = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
@@ -485,18 +491,12 @@ class KeyboardWindow:
         self._rebuild_keys()
         self._apply_mode_geometry()
 
-    def _apply_mode_geometry(self) -> None:
-        """Resize/reposition the window for the current mode (full / split /
-        one-handed left / one-handed right) and persist it."""
-        geo = self._monitor_geometry()
-        if not geo:
-            return
-        mx, my, mw, mh = geo
-        height = self._height or _SIZE_PRESETS["m"][1]
-
-        # One-handed modes need the compact style so a full keyboard can
-        # shrink to the reachable ~20% width; the size presets are also
-        # meaningless there, and hiding them frees strip width.
+    def _sync_mode_styling(self) -> None:
+        """Apply the compact CSS class and size-preset button visibility for
+        the current mode. One-handed modes use compact (smaller glyphs/margins
+        so a full keyboard fits the narrow width) and hide the S/M/L presets,
+        which are meaningless there. Idempotent — safe to call on every show()
+        so a keyboard reopened in a one-handed mode is styled correctly."""
         compact = self._mode in ("left", "right")
         if self._window:
             if compact:
@@ -505,6 +505,17 @@ class KeyboardWindow:
                 self._window.remove_css_class("compact")
         for btn in self._size_buttons:
             btn.set_visible(not compact)
+
+    def _compute_mode_geometry(self) -> bool:
+        """Recompute self._{x,y,width,height} from the current mode. Returns
+        True if geometry was set. For one-handed/split modes the width is
+        derived from the monitor (not the persisted value), so a stale saved
+        width never survives a mode/monitor change."""
+        geo = self._monitor_geometry()
+        if not geo:
+            return False
+        mx, my, mw, mh = geo
+        height = self._height or _SIZE_PRESETS["m"][1]
 
         if self._mode == "left":
             width = int(mw * _ONEHAND_FRAC)
@@ -525,6 +536,14 @@ class KeyboardWindow:
         self._height = height
         self._x = x
         self._y = my + mh - height - 56
+        return True
+
+    def _apply_mode_geometry(self) -> None:
+        """Resize/reposition the window for the current mode (full / split /
+        one-handed left / one-handed right) and persist it."""
+        self._sync_mode_styling()
+        if not self._compute_mode_geometry():
+            return
         if self._window:
             x11_move_resize(
                 self._window, self._x, self._y, self._width, self._height
@@ -606,6 +625,11 @@ class KeyboardWindow:
             self._build()
         if self._width <= 0 or self._height <= 0:
             self._default_geometry()
+        # Derive width from the mode for one-handed/split so a stale saved
+        # width (e.g. from an older _ONEHAND_FRAC or a different monitor) is
+        # not reapplied. Full mode keeps the user's persisted size.
+        if self._mode in ("left", "right", "split"):
+            self._compute_mode_geometry()
         present_overlay(self._window, OverlayRole.KEYBOARD)
         self._visible = True
         # Apply saved geometry once the surface is mapped (mapping is async),
