@@ -43,6 +43,9 @@ _TERMINAL_WM_CLASSES = {
     "io.elementary.terminal",
     "ghostty",
     "com.mitchellh.ghostty",
+    "warp",
+    "warp-terminal",
+    "dev.warp.warp",
 }
 
 

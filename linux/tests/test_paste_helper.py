@@ -153,6 +153,10 @@ class TestTerminalDetection:
     def test_case_insensitive(self):
         assert self._run_detection(b"Alacritty\n") is True
 
+    def test_warp_is_terminal(self):
+        # Warp's WM class is "dev.warp.Warp" (xdotool getwindowclassname).
+        assert self._run_detection(b"dev.warp.Warp\n") is True
+
     def test_no_xdotool_returns_false(self):
         with patch("shutil.which", return_value=None), \
              patch("os.path.exists", return_value=False):

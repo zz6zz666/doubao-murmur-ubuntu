@@ -24,6 +24,14 @@
   <url type="homepage">https://github.com/lilong7676/doubao-murmur</url>
   <developer_name>lilong7676</developer_name>
   <releases>
+    <release version="1.4.5" date="2026-06-13">
+      <description>
+        <p>Auto-paste into the Warp terminal: its window class
+           (dev.warp.Warp) was not recognized as a terminal, so the app sent
+           Ctrl+V instead of Ctrl+Shift+V and Warp dropped the text (leaving a
+           stray "v"). Warp is now in the terminal list and pastes correctly.</p>
+      </description>
+    </release>
     <release version="1.4.4" date="2026-06-12">
       <description>
         <p>On-screen keyboard one-handed mode: widen from 22% to 35% of the
